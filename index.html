@@ -1,88 +1,69 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ducklett Conversa</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Quicksand:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <header class="hero" aria-labelledby="hero-title">
-      <div class="hero__content">
-        <h1 id="hero-title">Ducklett te está esperando</h1>
-        <p class="hero__subtitle">
-          Celebra una charla acuática con el patito más adorable de Teselia.
-        </p>
-        <button id="toggle-theme" class="theme-toggle" type="button" aria-pressed="false">
-          Activar modo oscuro
-        </button>
-      </div>
-      <figure class="ducklett" aria-labelledby="ducklett-figure">
-        <img
-          id="ducklett-figure"
-          class="ducklett__image"
-          src="https://raw.githubusercontent.com/PokeAPI/sprites/master/other/official-artwork/580.png"
-          alt="Ducklett, un Pokémon azul de tipo agua volando alegremente"
-          loading="lazy"
-        />
-      </figure>
-    </header>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Habla con Ducklett!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 
-    <main class="main" aria-live="polite">
-      <section class="intro" aria-labelledby="intro-heading">
-        <h2 id="intro-heading">¿Te gustaría conversar con Ducklett?</h2>
-        <p>
-          Ducklett ama las charlas sobre aventuras acuáticas. Elige si quieres iniciar una
-          conversación y prepara tu encuentro.
-        </p>
-        <div class="cta" role="group" aria-label="Opciones para conversar con Ducklett">
-          <button id="yes-btn" class="btn btn--primary" type="button">¡Sí!</button>
-          <button id="no-btn" class="btn btn--secondary" type="button">No</button>
+</head>
+<body>
+    <button class="dark-mode-toggle" id="darkModeToggle" aria-label="Cambiar modo oscuro">🌙</button>
+    
+    <h1 class="pokemon-font">¡Ducklett te saluda!</h1>
+    
+    <div class="container">
+        <div class="header">
+            <div class="ducklett-image">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/580.png" alt="Ducklett" id="ducklettImg">
+            </div>
         </div>
-        <p id="status-message" class="status-message" role="status" aria-live="assertive"></p>
-      </section>
+        
+        <div class="message" id="mainMessage">
+            ¡Hola! Soy Ducklett, el Pokémon, y me encantaría hablar contigo. 
+            ¿Quieres programar una cita para charlar? ¡Será divertido! 😊
+        </div>
+        
+        <div class="buttons-container" id="buttonsContainer">
+            <button class="btn btn-primary" id="yesBtn">¡Sí!</button>
+            <button class="btn btn-secondary" id="noBtn">No</button>
+        </div>
+        
+        <div class="sad-message" id="sadMessage">
+            Ducklett está triste... ¿seguro que no quieres hablar? Solo podrás continuar si aceptas.
+        </div>
+        
+        <div class="calendar-container" id="calendarContainer">
+            <h2>¡Excelente! Elige cuándo quieres hablar</h2>
+            
+            <div class="form-group">
+                <label for="date">Fecha:</label>
+                <input type="date" id="date" class="form-control" min="">
+            </div>
+            
+            <div class="form-group">
+                <label for="time">Hora:</label>
+                <input type="time" id="time" class="form-control">
+            </div>
+            
+            <button class="btn btn-primary" id="confirmBtn">Confirmar cita</button>
+        </div>
+        
+        <div class="confirmation" id="confirmation">
+            <h2>¡Cita confirmada!</h2>
+            <p id="confirmationDetails"></p>
+            <p>¡Nos vemos entonces! Ducklett está emocionado.</p>
+            <div class="ducklett-image" style="width: 100px; height: 100px; margin: 15px auto;">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/580.png" alt="Ducklett feliz" style="width: 80px; height: 80px;">
+            </div>
+            <button class="btn reset-btn" id="resetBtn">Programar nueva cita</button>
+        </div>
+        
+        <div class="water-effect"></div>
+        <div class="bubbles" id="bubbles"></div>
+    </div>
+    <script src="script.js"></script>
 
-      <section id="scheduler" class="scheduler" aria-labelledby="scheduler-title" hidden>
-        <h2 id="scheduler-title">Agenda tu charla</h2>
-        <form id="booking-form" class="scheduler__form">
-          <div class="field">
-            <label for="date-input">Selecciona un día</label>
-            <input id="date-input" name="date" type="date" required aria-required="true" />
-          </div>
-          <div class="field">
-            <label for="time-input">Selecciona horario</label>
-            <input
-              id="time-input"
-              name="time"
-              type="time"
-              required
-              aria-required="true"
-              min="09:00"
-              max="21:00"
-            />
-            <small>Ducklett conversa entre las 09:00 y las 21:00.</small>
-          </div>
-          <button class="btn btn--primary" type="submit">Confirmar charla</button>
-        </form>
-        <div id="confirmation" class="confirmation" role="alert" aria-live="assertive" hidden></div>
-      </section>
-    </main>
-
-    <audio id="celebration-audio" preload="auto">
-      <source src="https://actions.google.com/sounds/v1/water/bubbles.ogg" type="audio/ogg" />
-      Tu navegador no soporta efectos de sonido.
-    </audio>
-
-    <template id="bubble-template">
-      <span class="bubble" aria-hidden="true"></span>
-    </template>
-
-    <script src="script.js" type="module"></script>
-  </body>
+</body>
 </html>

@@ -1,201 +1,335 @@
-// Ducklett interactive appointment page
-// Uses vanilla JavaScript modules for clarity and maintainability.
-
-const STORAGE_KEY = "ducklettAppointment";
-const THEME_KEY = "ducklettTheme";
-const SAD_TIMEOUT = 2400;
-
-const elements = {
-  yesButton: document.querySelector("#yes-btn"),
-  noButton: document.querySelector("#no-btn"),
-  statusMessage: document.querySelector("#status-message"),
-  schedulerSection: document.querySelector("#scheduler"),
-  bookingForm: document.querySelector("#booking-form"),
-  dateInput: document.querySelector("#date-input"),
-  timeInput: document.querySelector("#time-input"),
-  confirmation: document.querySelector("#confirmation"),
-  ducklettFigure: document.querySelector(".ducklett"),
-  bubbleTemplate: document.querySelector("#bubble-template"),
-  celebrationAudio: document.querySelector("#celebration-audio"),
-  themeToggle: document.querySelector("#toggle-theme"),
-};
-
-/**
- * Adds water bubble celebration elements.
- * The animation is purely decorative, so bubbles are marked aria-hidden.
- */
-function spawnBubbles() {
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < 12; i += 1) {
-    const bubble = elements.bubbleTemplate.content.firstElementChild.cloneNode(true);
-    bubble.style.left = `${Math.random() * 100}%`;
-    bubble.style.animationDelay = `${Math.random() * 0.8}s`;
-    fragment.appendChild(bubble);
-  }
-  elements.confirmation.appendChild(fragment);
-  // Clean up bubbles after animation completes.
-  setTimeout(() => {
-    elements.confirmation.querySelectorAll(".bubble").forEach((node) => node.remove());
-  }, 4200);
-}
-
-/** Displays the scheduler section with a smooth reveal. */
-function showScheduler() {
-  if (elements.schedulerSection.hasAttribute("hidden")) {
-    elements.schedulerSection.hidden = false;
-    elements.schedulerSection.classList.add("is-visible");
-    setTimeout(() => elements.schedulerSection.classList.remove("is-visible"), 400);
-  }
-}
-
-/** Enables or disables the CTA buttons while updating ARIA state. */
-function toggleButtonsDisabled(isDisabled) {
-  [elements.yesButton, elements.noButton].forEach((button) => {
-    button.disabled = isDisabled;
-    button.setAttribute("aria-disabled", String(isDisabled));
-  });
-}
-
-/** Handles the "No" response, including the sad animation and message. */
-function handleNoClick() {
-  toggleButtonsDisabled(true);
-  elements.statusMessage.textContent = "Ducklett está triste... ¿seguro?";
-  elements.ducklettFigure.classList.add("ducklett--sad");
-  setTimeout(() => {
-    toggleButtonsDisabled(false);
-    elements.ducklettFigure.classList.remove("ducklett--sad");
-  }, SAD_TIMEOUT);
-}
-
-/**
- * Validates the selected date and time, ensuring they form a future appointment.
- * @returns {{valid: boolean, message?: string, isoString?: string}}
- */
-function validateSchedule(dateValue, timeValue) {
-  if (!dateValue || !timeValue) {
-    return { valid: false, message: "Selecciona la fecha y el horario." };
-  }
-
-  const selectedDateTime = new Date(`${dateValue}T${timeValue}`);
-  if (Number.isNaN(selectedDateTime.getTime())) {
-    return { valid: false, message: "La fecha u hora no es válida." };
-  }
-
-  const now = new Date();
-  if (selectedDateTime <= now) {
-    return { valid: false, message: "Elige un momento futuro para conversar." };
-  }
-
-  return { valid: true, isoString: selectedDateTime.toISOString() };
-}
-
-/** Persists the confirmed schedule and updates the UI message. */
-function saveAppointment(dateValue, timeValue, isoString, options = {}) {
-  const appointment = { date: dateValue, time: timeValue, iso: isoString };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appointment));
-  renderAppointment(isoString, options);
-}
-
-/** Attempts to play the celebration audio with graceful failure. */
-function playCelebrationSound() {
-  if (!elements.celebrationAudio) return;
-  const playPromise = elements.celebrationAudio.cloneNode(true).play();
-  if (playPromise) {
-    playPromise.catch(() => {
-      // Ignore autoplay restrictions silently.
-    });
-  }
-}
-
-/** Handles form submissions for booking confirmation. */
-function handleBookingSubmit(event) {
-  event.preventDefault();
-  const dateValue = elements.dateInput.value;
-  const timeValue = elements.timeInput.value;
-  const validation = validateSchedule(dateValue, timeValue);
-  if (!validation.valid) {
-    elements.statusMessage.textContent = validation.message;
-    elements.confirmation.hidden = true;
-    return;
-  }
-  elements.statusMessage.textContent = "¡Ducklett está feliz!";
-  saveAppointment(dateValue, timeValue, validation.isoString, { celebrate: true });
-}
-
-/** Restores saved data from localStorage, if any. */
-function restoreState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      const data = JSON.parse(saved);
-      if (data.date && data.time) {
-        elements.dateInput.value = data.date;
-        elements.timeInput.value = data.time;
-        showScheduler();
-        renderAppointment(data.iso ?? `${data.date}T${data.time}`, { celebrate: false });
-        elements.statusMessage.textContent = "Hemos recordado tu última cita con Ducklett.";
-      }
-    } catch (error) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }
-
-  const storedTheme = localStorage.getItem(THEME_KEY);
-  if (storedTheme === "dark") {
-    document.body.classList.add("dark");
-    elements.themeToggle.setAttribute("aria-pressed", "true");
-    elements.themeToggle.textContent = "Desactivar modo oscuro";
-  }
-}
-
-/** Toggles the theme between light and dark variations. */
-function toggleTheme() {
-  const isDark = document.body.classList.toggle("dark");
-  elements.themeToggle.setAttribute("aria-pressed", String(isDark));
-  elements.themeToggle.textContent = isDark ? "Desactivar modo oscuro" : "Activar modo oscuro";
-  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
-}
-
-/** Registers the event listeners for the page. */
-function registerEventListeners() {
-  elements.noButton.addEventListener("click", handleNoClick);
-  elements.yesButton.addEventListener("click", () => {
-    showScheduler();
-    elements.statusMessage.textContent = "¡Genial! Selecciona cuándo quieres hablar.";
-    elements.dateInput.focus();
-  });
-  elements.bookingForm.addEventListener("submit", handleBookingSubmit);
-  elements.themeToggle.addEventListener("click", toggleTheme);
-  elements.ducklettFigure.addEventListener("dblclick", () => {
-    elements.statusMessage.textContent = "🐣 ¡Easter egg! Ducklett practicó un nuevo aleteo.";
-  });
-}
-
-registerEventListeners();
-restoreState();
-
-/**
- * Renders the confirmation panel with the selected appointment date.
- * @param {string} isoString - The ISO date time string to display.
- * @param {{celebrate?: boolean}} options - Controls celebratory animations.
- */
-function renderAppointment(isoString, { celebrate = true } = {}) {
-  if (!isoString) {
-    elements.confirmation.hidden = true;
-    return;
-  }
-  const dateFormatter = new Intl.DateTimeFormat("es-ES", {
-    dateStyle: "full",
-    timeStyle: "short",
-  });
-  const friendlyDate = dateFormatter.format(new Date(isoString));
-  elements.confirmation.hidden = false;
-  elements.confirmation.innerHTML = `
-    <p>🎉 ¡Listo! Ducklett te espera el <strong>${friendlyDate}</strong>.</p>
-    <p>¡No olvides llevar tus mejores historias acuáticas!</p>
-  `;
-  if (celebrate) {
-    spawnBubbles();
-    playCelebrationSound();
-  }
-}
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos DOM
+            const yesBtn = document.getElementById('yesBtn');
+            const noBtn = document.getElementById('noBtn');
+            const sadMessage = document.getElementById('sadMessage');
+            const calendarContainer = document.getElementById('calendarContainer');
+            const confirmation = document.getElementById('confirmation');
+            const confirmationDetails = document.getElementById('confirmationDetails');
+            const dateInput = document.getElementById('date');
+            const timeInput = document.getElementById('time');
+            const confirmBtn = document.getElementById('confirmBtn');
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            const bubblesContainer = document.getElementById('bubbles');
+            const ducklettImg = document.getElementById('ducklettImg');
+            const mainMessage = document.getElementById('mainMessage');
+            const buttonsContainer = document.getElementById('buttonsContainer');
+            const resetBtn = document.getElementById('resetBtn');
+            
+            // Variables para el comportamiento del botón "No"
+            let noClickCount = 0;
+            
+            // Mensajes de tristeza
+            const sadMessages = [
+                "¡Ducklett está triste!",
+                "¡No me ignores!",
+                "¿Por qué me rechazas?",
+                "¡Quiero ser tu amigo!",
+                "¡Vamos, di que sí!",
+                "¡No seas así!",
+                "¡Por favor!",
+                "Ducklett se pondrá a llorar...",
+                "¡Eres cruel!",
+                "¡Esto duele!"
+            ];
+            
+            // Establecer fecha mínima como hoy
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.min = `${yyyy}-${mm}-${dd}`;
+            
+            // Inicializar la página
+            function initPage() {
+                // Limpiar localStorage para pruebas (quitar esta línea en producción)
+                // localStorage.removeItem('ducklettAppointment');
+                
+                // Cargar cita guardada si existe
+                const savedAppointment = localStorage.getItem('ducklettAppointment');
+                if (savedAppointment) {
+                    const appointment = JSON.parse(savedAppointment);
+                    confirmationDetails.textContent = `Tu cita con Ducklett es el ${appointment.formattedDate} a las ${appointment.formattedTime}.`;
+                    confirmation.style.display = 'block';
+                    document.querySelector('.buttons-container').style.display = 'none';
+                    mainMessage.textContent = "¡Ya tienes una cita programada con Ducklett!";
+                } else {
+                    // Mostrar la interfaz inicial si no hay cita guardada
+                    buttonsContainer.style.display = 'flex';
+                    mainMessage.textContent = "¡Hola! Soy Ducklett, el Pokémon pato acuático. ¿Te gustaría conversar conmigo?";
+                }
+                
+                // Crear burbujas
+                createBubbles();
+            }
+            
+            // Crear burbujas
+            function createBubbles() {
+                for (let i = 0; i < 15; i++) {
+                    const bubble = document.createElement('div');
+                    bubble.classList.add('bubble');
+                    
+                    // Tamaño aleatorio
+                    const size = Math.random() * 30 + 10;
+                    bubble.style.width = `${size}px`;
+                    bubble.style.height = `${size}px`;
+                    
+                    // Posición aleatoria
+                    bubble.style.left = `${Math.random() * 100}%`;
+                    
+                    // Retraso y duración de animación aleatorios
+                    bubble.style.animationDelay = `${Math.random() * 10}s`;
+                    bubble.style.animationDuration = `${Math.random() * 10 + 10}s`;
+                    
+                    bubblesContainer.appendChild(bubble);
+                }
+            }
+            
+            // Efecto de sonido (simulado)
+            function playSound(type) {
+                // En un caso real, aquí se reproduciría un sonido
+                console.log(`Reproduciendo sonido: ${type}`);
+            }
+            
+            // Modo oscuro
+            darkModeToggle.addEventListener('click', function() {
+                document.body.classList.toggle('dark-mode');
+                darkModeToggle.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+            });
+            
+            // Crear mensaje flotante
+            function createFloatingMessage() {
+                const message = document.createElement('div');
+                message.classList.add('floating-message');
+                message.textContent = sadMessages[Math.floor(Math.random() * sadMessages.length)];
+                
+                // Posicionar más arriba para que no se tape con los botones
+                const containerRect = buttonsContainer.getBoundingClientRect();
+                const x = Math.random() * (containerRect.width - 150);
+                // Ajustar posición Y para que aparezcan más arriba
+                const y = Math.random() * 50; // Solo en la parte superior del contenedor
+                
+                message.style.left = `${x}px`;
+                message.style.top = `${y}px`;
+                
+                buttonsContainer.appendChild(message);
+                
+                // Eliminar el mensaje después de la animación
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        message.remove();
+                    }
+                }, 3000);
+            }
+            
+            // Crear Ducklett flotante
+            function createFloatingDucklett() {
+                const floatingDucklett = document.createElement('div');
+                floatingDucklett.classList.add('floating-ducklett');
+                
+                const img = document.createElement('img');
+                img.src = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/580.png";
+                img.alt = "Ducklett triste";
+                
+                floatingDucklett.appendChild(img);
+                
+                // Posicionar más arriba para que no se tape con los botones
+                const containerRect = buttonsContainer.getBoundingClientRect();
+                const x = Math.random() * (containerRect.width - 60);
+                // Ajustar posición Y para que aparezcan más arriba
+                const y = Math.random() * 40; // Solo en la parte superior del contenedor
+                
+                floatingDucklett.style.left = `${x}px`;
+                floatingDucklett.style.top = `${y}px`;
+                
+                buttonsContainer.appendChild(floatingDucklett);
+                
+                // Eliminar el Ducklett después de la animación
+                setTimeout(() => {
+                    if (floatingDucklett.parentNode) {
+                        floatingDucklett.remove();
+                    }
+                }, 4000);
+            }
+            
+            // Reducir tamaño del botón "No"
+            function shrinkNoButton() {
+                noClickCount++;
+                
+                // Calcular nuevo tamaño (mínimo 30% del original)
+                const scale = Math.max(0.3, 1 - (noClickCount * 0.15));
+                noBtn.style.transform = `scale(${scale})`;
+                
+                // Cambiar el texto después de varios clics
+                if (noClickCount >= 3) {
+                    noBtn.textContent = "No 😢";
+                }
+                if (noClickCount >= 5) {
+                    noBtn.textContent = "No 😭";
+                }
+                
+                // Si se hace muy pequeño, restablecer después de un tiempo
+                if (noClickCount >= 7) {
+                    setTimeout(() => {
+                        noClickCount = 0;
+                        noBtn.style.transform = 'scale(1)';
+                        noBtn.textContent = "No";
+                    }, 2000);
+                }
+            }
+            
+            // Cuando se hace clic en "No"
+            noBtn.addEventListener('click', function() {
+                playSound('sad');
+                
+                // Reducir el botón
+                shrinkNoButton();
+                
+                // Crear mensajes flotantes (más arriba)
+                createFloatingMessage();
+                createFloatingMessage();
+                
+                // Crear Ducklett flotante (más arriba)
+                if (noClickCount % 2 === 0) {
+                    createFloatingDucklett();
+                }
+                
+                // Cambiar imagen a triste
+                ducklettImg.style.filter = "brightness(0.8) sepia(0.5)";
+                
+                // Mostrar mensaje de tristeza después de varios clics
+                if (noClickCount >= 3) {
+                    sadMessage.style.display = 'block';
+                }
+                
+                // Hacer que el botón Sí parpadee para llamar la atención
+                yesBtn.style.animation = 'pulse 0.5s 3';
+                setTimeout(() => {
+                    yesBtn.style.animation = '';
+                }, 1500);
+            });
+            
+            // Cuando se hace clic en "Sí"
+            yesBtn.addEventListener('click', function() {
+                playSound('happy');
+                
+                // Restaurar el botón "No"
+                noClickCount = 0;
+                noBtn.style.transform = 'scale(1)';
+                noBtn.textContent = "No";
+                
+                // Restaurar imagen
+                ducklettImg.style.filter = "none";
+                
+                // Ocultar mensaje de tristeza
+                sadMessage.style.display = 'none';
+                
+                // Mostrar calendario
+                calendarContainer.style.display = 'block';
+                
+                // Ocultar botones
+                document.querySelector('.buttons-container').style.display = 'none';
+                
+                // Cambiar mensaje principal
+                mainMessage.textContent = "¡Genial! Ducklett está emocionado de hablar contigo.";
+            });
+            
+            // Cuando se confirma la cita
+            confirmBtn.addEventListener('click', function() {
+                const date = dateInput.value;
+                const time = timeInput.value;
+                
+                if (!date || !time) {
+                    alert("Por favor, selecciona una fecha y hora.");
+                    return;
+                }
+                
+                // Validar que la fecha no sea en el pasado
+                const selectedDateTime = new Date(`${date}T${time}`);
+                if (selectedDateTime < new Date()) {
+                    alert("Por favor, selecciona una fecha y hora futuras.");
+                    return;
+                }
+                
+                // Formatear fecha en español
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                const formattedDate = selectedDateTime.toLocaleDateString('es-ES', options);
+                const formattedTime = selectedDateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                
+                // Mostrar confirmación
+                confirmationDetails.textContent = `Tu cita con Ducklett es el ${formattedDate} a las ${formattedTime}.`;
+                confirmation.style.display = 'block';
+                calendarContainer.style.display = 'none';
+                
+                // Reproducir sonido de celebración
+                playSound('celebration');
+                
+                // Guardar en localStorage
+                localStorage.setItem('ducklettAppointment', JSON.stringify({
+                    date: date,
+                    time: time,
+                    formattedDate: formattedDate,
+                    formattedTime: formattedTime
+                }));
+                
+                // Animación de celebración
+                createCelebrationBubbles();
+            });
+            
+            // Botón de reinicio
+            resetBtn.addEventListener('click', function() {
+                // Eliminar cita guardada
+                localStorage.removeItem('ducklettAppointment');
+                
+                // Restablecer interfaz
+                confirmation.style.display = 'none';
+                buttonsContainer.style.display = 'flex';
+                mainMessage.textContent = "¡Hola! Soy Ducklett, el Pokémon pato acuático. ¿Te gustaría conversar conmigo?";
+                
+                // Restablecer botón "No"
+                noClickCount = 0;
+                noBtn.style.transform = 'scale(1)';
+                noBtn.textContent = "No";
+                
+                // Restablecer imagen
+                ducklettImg.style.filter = "none";
+                
+                // Ocultar mensaje de tristeza
+                sadMessage.style.display = 'none';
+            });
+            
+            // Inicializar la página
+            initPage();
+            
+            // Crear burbujas de celebración
+            function createCelebrationBubbles() {
+                for (let i = 0; i < 30; i++) {
+                    const bubble = document.createElement('div');
+                    bubble.classList.add('bubble');
+                    
+                    // Tamaño aleatorio
+                    const size = Math.random() * 20 + 5;
+                    bubble.style.width = `${size}px`;
+                    bubble.style.height = `${size}px`;
+                    
+                    // Posición aleatoria
+                    bubble.style.left = `${Math.random() * 100}%`;
+                    
+                    // Color amarillo para celebración
+                    bubble.style.backgroundColor = 'rgba(255, 222, 0, 0.7)';
+                    
+                    // Retraso y duración de animación aleatorios
+                    bubble.style.animationDelay = `${Math.random() * 2}s`;
+                    bubble.style.animationDuration = `${Math.random() * 5 + 5}s`;
+                    
+                    bubblesContainer.appendChild(bubble);
+                    
+                    // Eliminar burbuja después de la animación
+                    setTimeout(() => {
+                        if (bubble.parentNode) {
+                            bubble.remove();
+                        }
+                    }, 15000);
+                }
+            }
+        });
